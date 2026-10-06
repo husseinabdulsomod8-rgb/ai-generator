@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Generator</title>
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#0b0820;--card:#17133a;--card2:#201a4d;--sel:linear-gradient(135deg,#7c3aed,#ec4899);--tx:#f5f3ff;--dim:#9a94c9;--ac:#c4b5fd;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;padding-top:env(safe-area-inset-top,0px)}
+.top{display:flex;justify-content:space-between;align-items:center;padding:14px 16px}
+.l{display:flex;align-items:center;gap:14px;font-size:18px}
+.ib{background:var(--card);border:0;color:var(--tx);border-radius:16px;width:52px;height:52px;font-size:22px}
+.pill2{background:var(--card);border-radius:18px;display:flex;gap:4px;padding:0 6px}
+.pill2 .ib{background:none}
+#feed{flex:1;overflow-y:auto;padding:8px 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+#empty{grid-column:1/-1;text-align:center;color:#4b4585;margin-top:30vh;line-height:1.6}
+.item{background:var(--card);border-radius:14px;overflow:hidden;position:relative}
+.item img,.item video{width:100%;display:block;min-height:120px;background:var(--card2)}
+.item .bar{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:12px;color:var(--dim)}
+.item a{color:var(--ac);text-decoration:none;font-size:13px}
+.err{padding:14px;font-size:13px;line-height:1.5;color:#ffb4a8}
+#box{background:#120e30;border-radius:28px 28px 0 0;padding:20px 20px 14px}
+#prompt{width:100%;background:none;border:0;outline:0;color:var(--tx);font:inherit;font-size:19px;resize:none;height:56px}
+#prompt::placeholder{color:#6d6d73}
+.row{display:flex;justify-content:space-between;align-items:center}
+#plus{background:none;border:0;color:var(--tx);font-size:30px;padding:8px}
+#set{background:var(--sel);border:0;color:var(--tx);border-radius:30px;padding:16px 20px;font-size:14px;display:flex;gap:10px;align-items:center}
+#send{width:66px;height:66px;border-radius:50%;background:none;border:1px solid #2c2c30;color:var(--dim);font-size:26px;margin-left:12px}
+#send.on{background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border-color:transparent;box-shadow:0 0 26px #ec489977}
+#panel{background:var(--card);border-radius:20px 20px 0 0;padding:14px 12px calc(18px + env(safe-area-inset-bottom,0px));max-height:0;overflow:hidden;padding-top:0;padding-bottom:0;transition:max-height .28s ease,padding .28s ease}
+#panel.open{max-height:520px;padding-top:14px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+.cr{text-align:center;color:var(--dim);font-size:13px;margin-bottom:10px}
+.cr b{color:var(--tx);text-decoration:underline}
+.seg{display:flex;background:var(--card2);border-radius:14px;padding:3px;margin-bottom:8px}
+.seg button{flex:1;background:none;border:0;color:var(--dim);padding:18px 4px;border-radius:12px;font-size:15px}
+.seg button.sel{background:var(--sel);color:var(--tx)}
+.seg .ratio{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;padding:12px 2px}
+.seg .ratio i{display:block;border:1.6px solid currentColor;border-radius:3px}
+select{width:100%;background:var(--card2);color:var(--tx);border:0;border-radius:14px;padding:20px;font-size:15px;text-align:center;appearance:none}
+.hide{display:none}
+#gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9;padding:24px}
+#gate.hide{display:none}
+.gbox{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.gbox h2{margin:0 0 4px;font-size:26px}
+.gbox p{margin:0 0 8px;color:var(--dim);line-height:1.5}
+.gbox input{background:var(--card2);border:0;border-radius:14px;padding:18px;color:var(--tx);font:inherit;font-size:16px;outline:0}
+.gbox button{background:var(--sel);color:#fff;border:0;border-radius:14px;padding:18px;font-size:16px}
+#gform{display:flex;flex-direction:column;gap:12px}
+#gform.hide{display:none}
+.wait{color:var(--tx)}
+.top{border-bottom:1px solid #241d57}
+.item{border:1px solid #2a2266}
+.sr{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+#plus{cursor:pointer;line-height:1}
+#mbtn{width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--card2);color:var(--tx);border:0;border-radius:14px;padding:20px;font-size:15px}
+#mlist button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--tx);font-size:15px;padding:20px 24px;border-radius:16px}
+#mlist button.sel{background:var(--sel)}
+#panel.pick .seg:not(#kind){display:none}
+.upb{cursor:pointer;width:max-content}
+.upb{display:block;margin:16px auto 0;background:var(--card);color:var(--dim);border:0;border-radius:18px;padding:14px 26px;font-size:15px}
+.rm{color:var(--dim)!important}
+@media (prefers-reduced-motion:reduce){#panel{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div class="l"><button class="ib" aria-label="Clear" id="clear">←</button><span id="clock"></span></div>
+    <div class="pill2"><button class="ib" aria-label="Search">⌕</button><button class="ib" aria-label="Menu">⋮</button></div>
+  </div>
+  <div id="feed"><div id="empty">No assets yet.<br>Create one or upload from your gallery.<label class="upb" for="file">Upload</label></div></div>
+  <input type="file" id="file" accept="image/*" class="sr">
+  <div id="box">
+    <textarea id="prompt" placeholder="What do you want to make?"></textarea>
+    <div class="row">
+      <label id="plus" for="file" aria-label="Add picture">+</label>
+      <div class="row"><button id="set"></button><button id="send" aria-label="Generate">→</button></div>
+    </div>
+  </div>
+  <div id="panel">
+    <div class="cr">Generating will use <b id="cred">0 AI credits</b></div>
+    <div class="seg" id="kind"><button data-v="image" class="sel">Image</button><button data-v="video">Video</button></div>
+    <div class="seg" id="ratioImg"></div>
+    <div class="seg hide" id="ratioVid"><button data-v="16:9">16:9</button><button data-v="9:16" class="sel">9:16</button></div>
+    <div class="seg hide" id="res"><button data-v="360p">360p</button><button data-v="720p" class="sel">720p</button></div>
+    <div class="seg" id="qty"><button data-v="1" class="sel">x1</button><button data-v="2">x2</button><button data-v="3">x3</button><button data-v="4">x4</button></div>
+    <div class="seg hide" id="len"><button data-v="8" class="sel">8s</button><button data-v="15">15s</button><button data-v="30">30s</button><button data-v="60">1m</button><button data-v="180">3m</button></div>
+    <div id="mlist" class="hide"></div><button id="mbtn"><span id="mname"></span><span id="marrow">▾</span></button>
+  </div>
+</div>
+<div id="gate" class="hide"><div class="gbox">
+  <h2>Welcome</h2><p id="gmsg">Sign in with your Google account to start creating.</p>
+  <button id="gbtn">Continue with Google</button>
+  <div id="gform" class="hide"><input id="gname" placeholder="Your name" autocomplete="name"><input id="gage" type="number" inputmode="numeric" placeholder="Your age" min="1" max="120"><button id="gsave">Start creating</button></div>
+</div></div>
+<script>
+// ====== CONFIG: change these to connect other services ======
+const MODELS = {
+  image: [
+    {name:"PixelSter Flux Dev (free)", id:"pixelster"},
+    {name:"Puter image (free account)", id:"puter"},
+    {name:"Pollinations Flux (backup)", id:"flux"},
+    {name:"AI Horde (free, can be slow)", id:"horde"},
+    {name:"Gemini image (your free key)", id:"gemini"},
+    {name:"ChatGPT image (your own key, paid)", id:"openai"}
+  ],
+  video: [
+    {name:"Puter text to video (free account)", id:"puter"},
+    {name:"PixelSter text to video (free)", id:"pixelster"},
+    {name:"PixelSter image to video (upload a picture)", id:"pixelster-i2v"}
+  ]
+};
+// Free image endpoint (no key). If it changes, edit this one function.
+function imageURL(prompt, w, h, seed, model){
+  return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
+    "?width=" + w + "&height=" + h + "&seed=" + seed + "&model=" + model + "&nologo=true";
+}
+// AI video models make short clips (about 8s). Longer videos are made as several clips played back to back.
+const CLIP_SECONDS = 10;
+// Video: connect a provider here. Must return the URL of ONE clip (opts.len seconds).
+const PS = "https://ahm7xmakki.com/api/"; // PixelSter: free, no key (endpoints not tested yet)
+async function psImage(prompt, ratio){
+  const r = await fetch(PS+"tti",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,ratio})});
+  if(!r.ok) throw new Error("PixelSter is busy ("+r.status+")");
+  const d = await r.json();
+  if(!d.imageUrl) throw new Error("PixelSter sent no image");
+  return d.imageUrl;
+}
+// Tries the chosen service first, then the other one.
+async function generateImage(prompt, ratio, w, h, model){
+  const order = model==="flux" ? ["flux","pixelster"] : ["pixelster","flux"];
+  let last;
+  for(const m of order){
+    try{
+      if(m==="pixelster") return await psImage(prompt, ratio);
+      return imageURL(prompt,w,h,Math.floor(Math.random()*1e6),"flux");
+    }catch(e){ last=e; }
+  }
+  throw last;
+}
+const GEMINI_MODEL = "gemini-2.5-flash-image"; // change if Google renames it
+// Each user pastes THEIR OWN key. It is saved only in their browser, never in this file.
+function getKey(n){ try{ return localStorage.getItem("key_"+n)||""; }catch(e){ return ""; } }
+function askKey(n,label,where){
+  let k = getKey(n); if(k) return k;
+  k = (prompt("Paste your "+label+" key. Get one at "+where+"\nIt stays on your phone only.")||"").trim();
+  if(k){ try{ localStorage.setItem("key_"+n,k); }catch(e){} }
+  return k;
+}
+function dropKey(n){ try{ localStorage.removeItem("key_"+n); }catch(e){} }
+async function geminiImage(prompt, upload, key){
+  const parts=[{text:prompt}];
+  if(upload){ const m=upload.match(/^data:(.+?);base64,(.*)$/); parts.push({inlineData:{mimeType:m[1],data:m[2]}}); }
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+GEMINI_MODEL+":generateContent",
+    {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents:[{parts}]})});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok){ if(r.status===400||r.status===403) dropKey("gemini"); throw new Error((d.error&&d.error.message)||"Gemini error "+r.status); }
+  const ps = (d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts)||[];
+  const im = ps.find(x=>x.inlineData||x.inline_data); if(!im) throw new Error("Gemini sent no image. Try a different prompt.");
+  const x = im.inlineData||im.inline_data;
+  return "data:"+(x.mimeType||x.mime_type)+";base64,"+x.data;
+}
+async function openaiImage(prompt, upload, key){
+  let r;
+  if(upload){
+    const blob = await (await fetch(upload)).blob();
+    const f = new FormData(); f.append("model","gpt-image-1"); f.append("prompt",prompt); f.append("image",blob,"image.png");
+    r = await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+key},body:f});
+  } else {
+    r = await fetch("https://api.openai.com/v1/images/generations",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+key},body:JSON.stringify({model:"gpt-image-1",prompt})});
+  }
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok){ if(r.status===401) dropKey("openai"); throw new Error((d.error&&d.error.message)||"OpenAI error "+r.status); }
+  return "data:image/png;base64,"+d.data[0].b64_json;
+}
+// AI Horde: free community image service. The anonymous key 0000000000 is public and needs no signup.
+async function hordeImage(prompt, w, h){
+  const H = {"Content-Type":"application/json", apikey:"0000000000"};
+  const r = await fetch("https://aihorde.net/api/v2/generate/async",{method:"POST",headers:H,
+    body:JSON.stringify({prompt,params:{width:w,height:h,steps:25,n:1},censor_nsfw:true,r2:true})});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok||!d.id) throw new Error(d.message||("AI Horde error "+r.status));
+  for(let i=0;i<120;i++){
+    await new Promise(ok=>setTimeout(ok,3000));
+    const s = await (await fetch("https://aihorde.net/api/v2/generate/status/"+d.id)).json();
+    if(s.faulted) throw new Error("AI Horde failed. Try again.");
+    if(s.done && s.generations && s.generations[0]) return s.generations[0].img;
+  }
+  throw new Error("AI Horde took too long. Try again later.");
+}
+async function makeImage(p,w,h){
+  if(S.model==="puter"){
+    if(typeof puter==="undefined") throw new Error("Puter did not load. Check your internet and reload.");
+    let im;
+    try{ im = await puter.ai.txt2img(p); }
+    catch(e){ throw new Error("Puter said: "+errText(e)+" (Allow pop-ups so you can sign in to Puter, then try again.)"); }
+    return im.src;
+  }
+  if(S.model==="horde"){
+    const k = 512/Math.max(w,h), r64 = v=>Math.max(64,Math.round(v*k/64)*64);
+    return hordeImage(p, r64(w), r64(h));
+  }
+  if(S.model==="gemini"){
+    const k = askKey("gemini","Gemini","aistudio.google.com/apikey"); if(!k) throw new Error("A Gemini key is needed.");
+    return geminiImage(p,S.upload,k);
+  }
+  if(S.model==="openai"){
+    const k = askKey("openai","OpenAI","platform.openai.com/api-keys"); if(!k) throw new Error("An OpenAI key is needed.");
+    return openaiImage(p,S.upload,k);
+  }
+  if(S.upload) throw new Error("To edit your picture, choose Gemini or ChatGPT in the model list.");
+  return generateImage(p, S.ratio, w, h, S.model);
+}
+async function toBase64(url){
+  const b = await (await fetch(url)).blob();
+  return await new Promise((ok,no)=>{ const f=new FileReader(); f.onload=()=>ok(f.result); f.onerror=no; f.readAsDataURL(b); });
+}
+// One clip: make a picture from the prompt, then turn it into a video.
+async function generateVideo(o){
+  const scene = o.parts>1 ? o.prompt+" (scene "+o.part+" of "+o.parts+")" : o.prompt;
+  if(o.model==="puter"){
+    if(typeof puter==="undefined") throw new Error("Puter did not load. Check your internet and reload.");
+    let v;
+    try{ v = await puter.ai.txt2vid(scene); } // first use opens a free Puter sign-in
+    catch(e){ throw new Error("Puter said: "+errText(e)+" (Allow pop-ups so you can sign in to Puter, then try again.)"); }
+    if(!v||!v.src) throw new Error("Puter sent no video.");
+    return v.src;
+  }
+  let img = o.image;
+  if(!img){
+    const [w,h] = dims(o.ratio);
+    try{ img = await generateImage(scene, o.ratio, w, h, "pixelster"); }
+    catch(e){ throw new Error("Step 1 failed (making the picture): "+e.message); }
+  }
+  let r, d, b64;
+  try{ b64 = await toBase64(img); }
+  catch(e){ throw new Error("Step 2a failed (reading the picture): "+e.message); }
+  try{
+    r = await fetch(PS+"ptv",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt:o.prompt,ratio:o.ratio,duration:o.len,imageBase64:b64})});
+    d = await r.json().catch(()=>({}));
+  }catch(e){ throw new Error("Step 2b failed (video service): "+e.message+". The browser may be blocked from this video service."); }
+  if(!r.ok||!d.success) throw new Error("Step 2 failed: the video service answered with an error ("+r.status+").");
+  return d.videoUrl;
+}
+// ==============================================================
+
+const $ = s => document.querySelector(s);
+function errText(e){
+  if(!e) return "Unknown error";
+  if(typeof e==="string") return e;
+  if(e.message) return e.message;
+  if(e.error) return typeof e.error==="string" ? e.error : (e.error.message||JSON.stringify(e.error));
+  try{ return JSON.stringify(e); }catch(_){ return String(e); }
+}
+const S = {kind:"image", ratio:"4:3", vratio:"9:16", res:"720p", qty:1, len:8, model:"flux"};
+const RATIOS = ["16:9","4:3","1:1","3:4","9:16"];
+const dims = r => { const [a,b]=r.split(":").map(Number); const base=1024; return a>=b?[base,Math.round(base*b/a)]:[Math.round(base*a/b),base]; };
+
+// Build the image ratio buttons with small shape icons
+$("#ratioImg").innerHTML = RATIOS.map(r=>{
+  const [a,b]=r.split(":").map(Number), k=18/Math.max(a,b);
+  return `<button class="ratio${r===S.ratio?" sel":""}" data-v="${r}"><i style="width:${a*k}px;height:${b*k}px"></i>${r}</button>`;
+}).join("");
+
+function credits(){
+  return 0; // free for now
+}
+function refresh(){
+  $("#cred").textContent = credits()+" AI credits";
+  const r = S.kind==="image"?S.ratio:S.vratio;
+  const [a,b]=r.split(":").map(Number), k=14/Math.max(a,b);
+  $("#set").innerHTML = `<span>${S.kind==="image"?"Image":"Video"}</span><i style="display:inline-block;border:1.6px solid currentColor;border-radius:2px;width:${a*k}px;height:${b*k}px"></i><span>x${S.qty}</span>`;
+  ["ratioImg","qty"].forEach(id=>0);
+  $("#ratioImg").classList.toggle("hide",S.kind!=="image");
+  ["ratioVid","res","len"].forEach(id=>$("#"+id).classList.toggle("hide",S.kind!=="video"));
+  S.model = MODELS[S.kind][0].id; renderModels();
+}
+function renderModels(){
+  const list = MODELS[S.kind];
+  $("#mname").textContent = list.find(m=>m.id===S.model).name;
+  $("#mlist").innerHTML = list.map(m=>`<button data-v="${m.id}" class="${m.id===S.model?"sel":""}">${m.name}</button>`).join("");
+}
+function modelOpen(on){
+  $("#panel").classList.toggle("pick",on); $("#mlist").classList.toggle("hide",!on); $("#marrow").textContent = on?"✕":"▾";
+}
+$("#mbtn").onclick = ()=>modelOpen($("#mlist").classList.contains("hide"));
+$("#mlist").onclick = e=>{ const b=e.target.closest("button"); if(!b) return; S.model=b.dataset.v; renderModels(); modelOpen(false); };
+function seg(id, key, num){
+  $("#"+id).addEventListener("click", e=>{
+    const b = e.target.closest("button"); if(!b) return;
+    S[key] = num ? Number(b.dataset.v) : b.dataset.v;
+    [...$("#"+id).children].forEach(c=>c.classList.toggle("sel", c===b));
+    refresh();
+  });
+}
+seg("kind","kind"); seg("ratioImg","ratio"); seg("ratioVid","vratio"); seg("res","res"); seg("qty","qty",true); seg("len","len",true);
+$("#set").onclick = ()=>$("#panel").classList.toggle("open");
+$("#prompt").addEventListener("input", e=>$("#send").classList.toggle("on", e.target.value.trim().length>0));
+$("#clear").onclick = ()=>{ $("#feed").innerHTML='<div id="empty">No assets yet.<br>Create one or upload from your gallery.<label class="upb" for="file">Upload</label></div>'; S.upload=null; };
+
+// Upload: the "+" button and the Upload button pick a picture from the gallery.
+// An uploaded picture is used as the starting frame for videos.
+const fileIn = $("#file");
+$("#feed").addEventListener("click", e=>{
+  if(e.target.classList.contains("rm")){ e.preventDefault(); S.upload=null; e.target.closest(".bar").innerHTML="<span>Removed</span>"; }
+});
+fileIn.onchange = ()=>{
+  const f = fileIn.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ S.upload = r.result; addItem(`<img alt="" src="${r.result}"><div class="bar"><span>Used for videos</span><a href="#" class="rm">Remove</a></div>`); };
+  r.readAsDataURL(f); fileIn.value="";
+};
+function tick(){ const d=new Date(); $("#clock").textContent = d.toLocaleDateString("en-US",{month:"short",day:"2-digit"})+", "+d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}); }
+tick(); setInterval(tick,30000);
+
+function addItem(html){ const e=$("#empty"); if(e) e.remove(); const d=document.createElement("div"); d.className="item"; d.innerHTML=html; $("#feed").prepend(d); return d; }
+
+async function go(){
+  const p = $("#prompt").value.trim(); if(!p) return;
+  $("#panel").classList.remove("open");
+  if(S.model==="puter" && typeof puter!=="undefined"){
+    try{ if(!puter.auth.isSignedIn()) await puter.auth.signIn(); }
+    catch(e){ addItem(`<div class="err">Sign in to Puter was cancelled or blocked. Allow pop-ups for this page, then tap the arrow again.</div>`); return; }
+  }
+  if(S.kind==="image"){
+    const [w,h]=dims(S.ratio);
+    for(let i=0;i<S.qty;i++){
+      const it = addItem(`<img alt="" style="aspect-ratio:${w}/${h}"><div class="bar"><span>Creating…</span></div>`);
+      const img = it.querySelector("img");
+      try{
+        const url = await makeImage(p, w, h);
+        img.onload = ()=>{ it.querySelector(".bar").innerHTML=`<span>${S.ratio}</span><a href="${url}" target="_blank" rel="noopener" download>Save</a>`; };
+        img.onerror = ()=>{ it.innerHTML=`<div class="err">Couldn't create this image. The free service may be busy or blocked. Try again in a moment.</div>`; };
+        img.src = url;
+      }catch(err){ it.innerHTML=`<div class="err">${errText(err)}</div>`; }
+    }
+  } else {
+    for(let q=0;q<S.qty;q++){
+      if(S.model==="pixelster-i2v" && !S.upload){ addItem(`<div class="err">Tap + to upload a picture first, or switch the model to text to video.</div>`); break; }
+      const n = Math.ceil(S.len/CLIP_SECONDS);
+      const it = addItem(`<div class="err wait">Creating video… clip 1 of ${n} · 0:00</div>`);
+      const t0=Date.now(); let cur=1;
+      const clock=()=>{ const s=Math.floor((Date.now()-t0)/1000); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+      const tm=setInterval(()=>{ const w=it.firstChild; if(w&&w.classList&&w.classList.contains("wait")) w.textContent="Creating video… clip "+cur+" of "+n+" · "+clock(); },1000);
+      try{
+        const urls=[];
+        for(let i=0;i<n;i++){
+          cur=i+1;
+          urls.push(await generateVideo({image:(S.model==="pixelster-i2v"?S.upload:null), prompt:p, part:i+1, parts:n, ratio:S.vratio, res:S.res, len:CLIP_SECONDS, model:S.model}));
+        }
+        clearInterval(tm);
+        it.innerHTML = `<video controls playsinline></video><div class="bar"><span>${n} clips</span><span>${urls.map((u,i)=>`<a href="${u}" download>${i+1}</a>`).join(" ")}</span></div>`;
+        const v = it.querySelector("video"); let k=0; v.src=urls[0];
+        v.onended=()=>{ if(++k<urls.length){ v.src=urls[k]; v.play(); } };
+      }catch(err){ clearInterval(tm); it.innerHTML = `<div class="err">${errText(err)}</div>`; break; }
+    }
+  }
+}
+$("#send").onclick = go;
+// ===== Sign-in (Google) + name and age. Off until you paste your Firebase config below. =====
+const FIREBASE_CONFIG = null; // example: {apiKey:"...", authDomain:"...", projectId:"...", appId:"..."}
+(function(){
+  if(!FIREBASE_CONFIG || typeof firebase==="undefined") return;
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore(), gate = $("#gate");
+  const say = t => { $("#gmsg").textContent = t; };
+  gate.classList.remove("hide");
+  $("#gbtn").onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>say("Sign-in failed: "+e.message));
+  auth.onAuthStateChanged(async u=>{
+    if(!u){ gate.classList.remove("hide"); $("#gform").classList.add("hide"); $("#gbtn").classList.remove("hide"); return; }
+    let doc; try{ doc = await db.collection("users").doc(u.uid).get(); }catch(e){ say("Could not load your profile: "+e.message); return; }
+    if(doc.exists){ gate.classList.add("hide"); return; }
+    $("#gbtn").classList.add("hide"); $("#gform").classList.remove("hide");
+    $("#gname").value = u.displayName||""; say("One more step: tell us about you.");
+  });
+  $("#gsave").onclick = async ()=>{
+    const u = auth.currentUser, name = $("#gname").value.trim(), age = Number($("#gage").value);
+    if(!u || !name || !age) return say("Enter your name and age.");
+    if(age < 13) return say("Sorry, you must be at least 13 to use this site.");
+    try{ await db.collection("users").doc(u.uid).set({name, age, email:u.email, created:Date.now()}); gate.classList.add("hide"); }
+    catch(e){ say("Could not save: "+e.message); }
+  };
+})();
+refresh();
+</script>
+</body>
+</html>
